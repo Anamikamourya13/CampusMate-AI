@@ -1,0 +1,177 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CampusMate AI — Smart Campus Assistant | College Notice Intelligence</title>
+  <meta name="description" content="AI-powered smart campus assistant that helps students understand college notices, extract important dates, identify required actions, and ask questions with Google Gemini.">
+  <link rel="icon" type="image/svg+xml" href="/assets/logo.svg">
+  
+  <!-- Google Fonts -->
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@400;500;600;700;800&family=Plus+Jakarta+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Custom Stylesheet -->
+  <link rel="stylesheet" href="/style.css">
+</head>
+<body>
+
+  <!-- Top Navigation Bar -->
+  <header class="navbar">
+    <div class="nav-container">
+      <div class="brand-wrap">
+        <img src="/assets/logo.svg" alt="CampusMate AI Logo" class="brand-logo" width="42" height="42">
+        <div class="brand-text">
+          <span class="brand-name">CampusMate AI</span>
+          <span class="brand-tagline">Your Campus. Your Notices. Your AI Assistant.</span>
+        </div>
+      </div>
+
+      <div class="nav-actions">
+        <div id="system-status" class="status-indicator">
+          <span class="status-dot"></span> Checking Status...
+        </div>
+        <button id="theme-toggle" class="theme-toggle-btn" aria-label="Toggle Dark / Light Theme" title="Toggle Theme">
+          <span class="theme-icon">🌙</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- Hero Banner -->
+  <section class="hero-header">
+    <div class="hero-pill">
+      <span>✨</span> Powered by Google Gemini API
+    </div>
+    <h1 class="hero-title">Understand Your Campus Notices In Seconds</h1>
+    <p class="hero-subtitle">
+      Turn long college notices into clear summaries, important dates, and actionable tasks.
+    </p>
+  </section>
+
+  <!-- Main Application Workspace -->
+  <main class="app-container">
+    <div class="workspace-grid">
+
+      <!-- Left Column: Notice Input -->
+      <aside class="input-panel" aria-label="Notice Input Panel">
+        <div class="panel-header">
+          <h2 class="panel-title"><span>📋</span> Notice Input</h2>
+        </div>
+
+        <!-- Sample Notices Selector -->
+        <div class="sample-select-row">
+          <label for="sample-notices-select" class="sample-select-label">Quick Load Sample Notice:</label>
+          <select id="sample-notices-select" class="custom-select">
+            <option value="">-- Choose a sample notice to test --</option>
+            <option value="exam">End-Semester Exam Schedule & Assignment Deadline</option>
+            <option value="hostel">Hostel Fee Payment & Room Allocation</option>
+            <option value="hackathon">Annual Campus Hackathon & Project Showcase</option>
+          </select>
+        </div>
+
+        <!-- Input Tab Selector -->
+        <div class="input-tabs" role="tablist">
+          <button class="input-tab-btn active" data-tab="text" role="tab" aria-selected="true">
+            <span>✍️</span> Paste Notice
+          </button>
+          <button class="input-tab-btn" data-tab="file" role="tab" aria-selected="false">
+            <span>📎</span> Upload Document
+          </button>
+        </div>
+
+        <!-- Method A: Paste Notice Text -->
+        <div id="text-input-pane" class="tab-pane">
+          <div class="text-input-wrap">
+            <textarea
+              id="notice-text"
+              class="notice-textarea"
+              placeholder="Paste your college notice here... Example: The end-semester examination will begin on 15 November 2026. Students must carry their college identity cards and report 30 minutes before the examination..."
+              aria-label="College notice text"
+            ></textarea>
+            <div class="input-footer">
+              <span id="char-count" class="char-counter">0 characters</span>
+            </div>
+          </div>
+        </div>
+
+        <!-- Method B & C: Upload Notice Document -->
+        <div id="file-input-pane" class="tab-pane hidden">
+          <div id="drop-zone" class="drop-zone">
+            <div class="drop-icon">📁</div>
+            <div class="drop-title">Drop your notice here, or browse</div>
+            <div class="drop-sub">Supports PDF (text), PNG, JPG, JPEG, WEBP, or TXT (Max 10 MB)</div>
+            <input type="file" id="file-input" class="hidden" accept=".pdf,.png,.jpg,.jpeg,.webp,.txt">
+          </div>
+
+          <!-- Selected File Preview -->
+          <div id="file-preview-card" class="file-preview-card hidden">
+            <div class="preview-left">
+              <img id="preview-thumbnail" class="preview-thumb hidden" alt="Image preview">
+              <span class="preview-file-icon">📄</span>
+              <div class="preview-meta">
+                <span id="preview-filename" class="preview-name">notice.pdf</span>
+                <span id="preview-filesize" class="preview-size">1.2 MB</span>
+              </div>
+            </div>
+            <button id="remove-file-btn" class="remove-btn" title="Remove file" aria-label="Remove uploaded file">✕</button>
+          </div>
+        </div>
+
+        <!-- Language Selector -->
+        <div class="language-selector-section">
+          <label class="lang-label">Explanation Language:</label>
+          <div class="lang-pills">
+            <button class="lang-pill active" data-lang="English">English</button>
+            <button class="lang-pill" data-lang="Hindi">हिंदी (Hindi)</button>
+            <button class="lang-pill" data-lang="Hinglish">Hinglish</button>
+          </div>
+        </div>
+
+        <!-- Action Buttons -->
+        <div class="panel-actions">
+          <button id="analyze-btn" class="btn-primary">
+            <span class="spinner btn-spinner hidden"></span>
+            <span class="btn-text">Analyze Notice</span>
+          </button>
+          <button id="clear-btn" class="btn-secondary">Clear</button>
+        </div>
+
+        <!-- Processing Status Banner -->
+        <div id="processing-status" class="processing-banner hidden" role="status">
+          Analyzing notice with Google Gemini AI...
+        </div>
+      </aside>
+
+      <!-- Right Column: AI Intelligence Results -->
+      <section id="results-section" class="results-panel" aria-label="Analysis Results">
+        <!-- Default Empty State -->
+        <div class="empty-state-card">
+          <div class="empty-illustration">
+            <img src="/assets/logo.svg" alt="CampusMate AI" class="empty-logo" width="72" height="72">
+          </div>
+          <h2 class="empty-title">Ready to Understand Your Notice</h2>
+          <p class="empty-desc">
+            Paste any college circular, exam timetable, or upload a notice document on the left, then click <strong>Analyze Notice</strong>.
+          </p>
+          <div class="features-highlight-grid">
+            <div class="feature-badge">⚡ 3-Bullet Summary</div>
+            <div class="feature-badge">📅 Dates & Deadlines</div>
+            <div class="feature-badge">✅ Action Checklist</div>
+            <div class="feature-badge">💬 Grounded Q&A</div>
+            <div class="feature-badge">🌐 English • हिंदी • Hinglish</div>
+          </div>
+        </div>
+      </section>
+
+    </div>
+  </main>
+
+  <!-- Toast Notification Stack -->
+  <div id="toast-container" class="toast-container" aria-live="polite"></div>
+
+  <!-- JavaScript ES Module Entry Point -->
+  <script type="module" src="/src/main.js"></script>
+</body>
+</html>
