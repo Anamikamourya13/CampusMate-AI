@@ -1,6 +1,6 @@
 """
 Notice intelligence service orchestrator for CampusMate AI.
-Coordinates file extraction, validation, and Gemini AI processing.
+Coordinates file extraction, scanned PDF handling, validation, and Gemini AI processing.
 """
 from typing import Optional, Tuple
 from app.services.document_service import document_service
@@ -24,7 +24,7 @@ class NoticeService:
         language: str = "English"
     ) -> AnalyzeNoticeResponse:
         """
-        Process incoming notice input (text, PDF, image, or TXT) and run Gemini analysis.
+        Process incoming notice input (text, PDF, scanned PDF, image, or TXT) and run Gemini analysis.
         """
         target_lang = sanitize_language(language)
 
@@ -33,13 +33,22 @@ class NoticeService:
             cleaned_filename, ext = validate_upload_meta(filename, len(file_bytes))
 
             if ext == ".pdf":
-                extracted_text = document_service.extract_from_pdf(file_bytes)
-                valid_text = validate_notice_text(extracted_text)
-                return gemini_service.analyze_notice(notice_text=valid_text, language=target_lang)
+                doc_type, extracted_text, scanned_images = document_service.extract_from_pdf(file_bytes)
+                if doc_type == "text" and extracted_text:
+                    valid_text = validate_notice_text(extracted_text)
+                    return gemini_service.analyze_notice(notice_text=valid_text, language=target_lang)
+                elif doc_type == "scanned_images" and scanned_images:
+                    # Automatically process scanned PDF via Gemini Multimodal Vision
+                    return gemini_service.analyze_notice(
+                        notice_text=text,
+                        language=target_lang,
+                        images=scanned_images
+                    )
+                else:
+                    raise ValueError("Unable to read content from this PDF.")
 
             elif ext in (".png", ".jpg", ".jpeg", ".webp"):
                 img_data, mime = document_service.validate_and_prepare_image(file_bytes, cleaned_filename)
-                # Multimodal analysis directly with image bytes
                 return gemini_service.analyze_notice(
                     notice_text=text,
                     language=target_lang,

@@ -1,12 +1,12 @@
 """
 Gemini AI integration service for CampusMate AI.
 Uses the official Google GenAI SDK (google-genai).
-Provides notice analysis, deadline extraction, checklist generation, and grounded Q&A.
+Supports text, single images, and multi-page scanned PDF images with resilient fallbacks.
 """
 import json
 import time
 import logging
-from typing import Optional, List, Dict, Any
+from typing import Optional, List, Dict, Any, Tuple
 from google import genai
 from google.genai import types
 from google.genai.errors import ClientError, ServerError, APIError
@@ -31,7 +31,6 @@ class GeminiService:
     def get_client(self) -> genai.Client:
         """
         Lazily initialize and return the official Google GenAI client.
-        Avoids re-instantiating unless the configured API key changes.
         """
         api_key = settings.GEMINI_API_KEY
         if not api_key:
@@ -48,12 +47,10 @@ class GeminiService:
     def _execute_with_model_fallback(self, func, *args, **kwargs):
         """
         Execute a Gemini call with the configured model.
-        If the primary model is unavailable or encounters high demand (503/404),
-        automatically try alternative reliable flash models.
+        Falls back to alternative models if the primary model returns 404, 503, or rate limits.
         """
-        # Primary model first, followed by fallbacks
         primary = settings.GEMINI_MODEL
-        candidates = [primary, "gemini-2.5-flash", "gemini-3.5-flash", "gemini-flash-latest"]
+        candidates = [primary, "gemini-3.5-flash", "gemini-3.8-flash", "gemini-flash-latest"]
         models_to_try = []
         for m in candidates:
             if m and m not in models_to_try:
@@ -66,14 +63,13 @@ class GeminiService:
             except (ServerError, ClientError) as err:
                 last_error = err
                 err_str = str(err)
-                # If rate limit (429) or high demand (503) or not found (404), try next model
                 is_recoverable = (
                     "503" in err_str or "UNAVAILABLE" in err_str or
                     "404" in err_str or "NOT_FOUND" in err_str or
                     "high demand" in err_str.lower()
                 )
                 if is_recoverable and i < len(models_to_try) - 1:
-                    logger.warning(f"Model {model} returned {err_str[:80]}... attempting fallback to {models_to_try[i+1]}")
+                    logger.warning(f"Model {model} returned {err_str[:80]}... falling back to {models_to_try[i+1]}")
                     time.sleep(0.5)
                     continue
                 raise err
@@ -88,11 +84,11 @@ class GeminiService:
         notice_text: Optional[str] = None,
         language: str = "English",
         image_bytes: Optional[bytes] = None,
-        image_mime: Optional[str] = None
+        image_mime: Optional[str] = None,
+        images: Optional[List[Tuple[bytes, str]]] = None
     ) -> AnalyzeNoticeResponse:
         """
-        Analyze a college notice text or image using Gemini.
-        Returns a structured summary, dates, key facts, checklist, and missing details.
+        Analyze a college notice text, image, or scanned multi-page PDF images using Gemini.
         """
         client = self.get_client()
         lang_instruction = self._get_language_guidance(language)
@@ -122,7 +118,22 @@ class GeminiService:
 
         contents = []
 
-        if image_bytes and image_mime:
+        # Handle multiple scanned images (e.g. multi-page scanned PDF)
+        if images and len(images) > 0:
+            for img_data, mime in images:
+                contents.append(types.Part.from_bytes(data=img_data, mime_type=mime))
+            prompt = (
+                f"Please analyze these scanned college notice document page images. "
+                f"Extract the notice title, issuing authority, release date, summary bullet points, "
+                f"key facts, all dates/deadlines, required student action items, and missing information. "
+                f"Respond in {language}."
+            )
+            if notice_text:
+                prompt += f"\n\nAdditional text context provided:\n{notice_text}"
+            contents.append(prompt)
+
+        # Handle single image
+        elif image_bytes and image_mime:
             image_part = types.Part.from_bytes(data=image_bytes, mime_type=image_mime)
             contents.append(image_part)
             prompt = (
@@ -134,6 +145,8 @@ class GeminiService:
             if notice_text:
                 prompt += f"\n\nAdditional text context provided:\n{notice_text}"
             contents.append(prompt)
+
+        # Handle raw text
         else:
             prompt = (
                 f"Here is the official college notice to analyze:\n\n"
@@ -193,7 +206,7 @@ class GeminiService:
         )
 
         prompt = (
-            f"COLLEGE NOTICE:\n---\n{notice_text}\n---\n\n"
+            f"COLLEGE NOTICE CONTEXT:\n---\n{notice_text}\n---\n\n"
             f"STUDENT QUESTION: {question}\n\n"
             f"Please answer the student's question based strictly on the notice above in {language}.\n"
             f"Set found_in_notice to true if the notice explicitly provided this fact, or false if it is not mentioned."
