@@ -135,7 +135,7 @@ copy .env.example .env
 ```
 Edit `.env`:
 ```ini
-GEMINI_API_KEY=your_actual_google_gemini_api_key
+GEMINI_API_KEY=MAI NHI BATAUNGA KHUD SE KRO
 GEMINI_MODEL=gemini-3.5-flash
 APP_ENV=development
 MAX_UPLOAD_MB=10
